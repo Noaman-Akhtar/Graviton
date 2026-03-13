@@ -1,0 +1,99 @@
+import {
+  TRAIL_SPARKLE_MAX,
+  TRAIL_SPARKLE_MAX_LIFE,
+  TRAIL_SPARKLE_MIN_LIFE
+} from './config.js';
+import { gameState, lastPlayerPos, setLastPlayerPos } from './state.js';
+import { getPlayerScreenPosition } from './utils.js';
+
+export function updateTrailSparkles(spawnNew = false) {
+  const playerPos = getPlayerScreenPosition();
+  const previousPlayerPos = lastPlayerPos ?? playerPos;
+
+  if (!lastPlayerPos) {
+    setLastPlayerPos(playerPos);
+  }
+
+  if (spawnNew) {
+    const dx = playerPos.x - previousPlayerPos.x;
+    const dy = playerPos.y - previousPlayerPos.y;
+    const distanceMoved = Math.hypot(dx, dy);
+
+    if (distanceMoved > 0.01) {
+      const trailDirX = -dx / distanceMoved;
+      const trailDirY = -dy / distanceMoved;
+      const sideX = -trailDirY;
+      const sideY = trailDirX;
+      const sparkleCount = 2 + (Math.random() < 0.55 ? 1 : 0);
+
+      for (let i = 0; i < sparkleCount; i++) {
+        const spread = (Math.random() - 0.5) * 8;
+        const tailOffset = 5 + Math.random() * 6;
+        const life = TRAIL_SPARKLE_MIN_LIFE + Math.random() * (TRAIL_SPARKLE_MAX_LIFE - TRAIL_SPARKLE_MIN_LIFE);
+
+        gameState.trailSparkles.push({
+          x: playerPos.x + trailDirX * tailOffset + sideX * spread,
+          y: playerPos.y + trailDirY * tailOffset + sideY * spread,
+          vx: trailDirX * (0.08 + Math.random() * 0.14) + (Math.random() - 0.5) * 0.14,
+          vy: trailDirY * (0.08 + Math.random() * 0.14) + (Math.random() - 0.5) * 0.14,
+          life,
+          maxLife: life,
+          size: 1 + Math.random() * 2,
+          hue: 42 + Math.random() * 20,
+          twinkleOffset: Math.random() * Math.PI * 2
+        });
+      }
+    }
+  }
+
+  for (let i = gameState.trailSparkles.length - 1; i >= 0; i--) {
+    const sparkle = gameState.trailSparkles[i];
+    sparkle.x += sparkle.vx;
+    sparkle.y += sparkle.vy;
+    sparkle.vx *= 0.985;
+    sparkle.vy *= 0.985;
+    sparkle.life -= 1;
+
+    if (sparkle.life <= 0) {
+      gameState.trailSparkles.splice(i, 1);
+    }
+  }
+
+  if (gameState.trailSparkles.length > TRAIL_SPARKLE_MAX) {
+    gameState.trailSparkles.splice(0, gameState.trailSparkles.length - TRAIL_SPARKLE_MAX);
+  }
+
+  setLastPlayerPos(playerPos);
+}
+
+export function drawTrailSparkles(ctx) {
+  for (const sparkle of gameState.trailSparkles) {
+    const lifeRatio = sparkle.life / sparkle.maxLife;
+    const twinkle = 0.65 + 0.35 * Math.sin(Date.now() * 0.03 + sparkle.twinkleOffset);
+    const radius = sparkle.size * lifeRatio * twinkle;
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, lifeRatio * 0.95);
+    ctx.fillStyle = `hsla(${sparkle.hue}, 100%, 82%, 1)`;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = `hsla(${sparkle.hue}, 100%, 75%, ${lifeRatio})`;
+
+    ctx.beginPath();
+    ctx.arc(sparkle.x, sparkle.y, Math.max(0.6, radius), 0, Math.PI * 2);
+    ctx.fill();
+
+    if (sparkle.size > 1.4) {
+      const crossSize = radius * 2.4;
+      ctx.strokeStyle = `hsla(${sparkle.hue}, 100%, 92%, ${lifeRatio * 0.9})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(sparkle.x - crossSize, sparkle.y);
+      ctx.lineTo(sparkle.x + crossSize, sparkle.y);
+      ctx.moveTo(sparkle.x, sparkle.y - crossSize);
+      ctx.lineTo(sparkle.x, sparkle.y + crossSize);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+}

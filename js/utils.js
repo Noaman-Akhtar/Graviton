@@ -6,10 +6,15 @@ export function getSpiralRadius(theta) {
 }
 
 export function getPlayerScreenPosition() {
-  const playerScreenR = START_RADIUS + gameState.height;
+  const playerScreenR = gameState.gameOver
+    ? gameState.deathFallRadius
+    : START_RADIUS + gameState.height;
+  const playerAngle = gameState.gameOver
+    ? gameState.deathFallAngle
+    : gameState.distance;
 
   return {
-    x: playerScreenR * Math.cos(gameState.distance),
-    y: playerScreenR * Math.sin(gameState.distance)
+    x: playerScreenR * Math.cos(playerAngle),
+    y: playerScreenR * Math.sin(playerAngle)
   };
 }

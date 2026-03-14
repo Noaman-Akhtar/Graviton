@@ -11,25 +11,67 @@ import {
   PICKUP_BOB_SPEED,
   PICKUP_COLLISION_WINDOW,
   PLAYER_RADIUS,
+  SLOW_BUFF_DURATION,
+  SLOW_BUFF_MAX_ONSCREEN,
+  SLOW_BUFF_RADIUS,
+  SLOW_BUFF_SPAWN_CHANCE,
   TUNNEL_WIDTH
 } from './config.js';
 import { gameState } from './state.js';
-import { getSpiralRadius } from './utils.js';
+import { getPlayerScreenPosition, getSpiralRadius } from './utils.js';
+import { playPickupSound, playSlowBuffSound } from './audio.js';
+import { createBurst } from './particles.js';
 
 function calculateFuelPickupPosition(angle) {
-  const normalized = (Math.sin(angle * 1.7) + Math.cos(angle * 0.9) + 2) / 4;
-  const padding = 24;
-  return padding + normalized * (TUNNEL_WIDTH - padding * 2);
+  let bestObstacle = null;
+  let bestDistance = Infinity;
+
+  for (const obstacle of gameState.obstacles) {
+    const angleDistance = Math.abs(obstacle.angle - angle);
+
+    if (angleDistance < bestDistance && angleDistance < 0.45) {
+      bestDistance = angleDistance;
+      bestObstacle = obstacle;
+    }
+  }
+
+  if (bestObstacle) {
+    const innerPadding = Math.min(26, Math.max(14, bestObstacle.gapSize * 0.2));
+    const minPos = bestObstacle.gapPos + innerPadding;
+    const maxPos = bestObstacle.gapPos + bestObstacle.gapSize - innerPadding;
+    const centerPos = (minPos + maxPos) * 0.5;
+    const offsetSpan = Math.max(10, (maxPos - minPos) * 0.32);
+    const offsetDirection = Math.sin(angle * 2.1) > 0 ? 1 : -1;
+    const targetPos = centerPos + offsetDirection * offsetSpan;
+    return Math.max(minPos, Math.min(maxPos, targetPos));
+  }
+
+  const centerOffset = Math.sin(angle * 1.9) * 32;
+  return Math.max(28, Math.min(TUNNEL_WIDTH - 28, TUNNEL_WIDTH / 2 + centerOffset));
 }
 
 function collectHealthPickup(index) {
   gameState.health = Math.min(gameState.maxHealth, gameState.health + HEALTH_PICKUP_VALUE);
   gameState.healthPickups.splice(index, 1);
+  const pos = getPlayerScreenPosition();
+  createBurst(pos.x, pos.y, 330, 20, 1.5);
+  playPickupSound();
 }
 
 function collectFuelPickup(index) {
   gameState.fuel = Math.min(gameState.maxFuel, gameState.fuel + FUEL_PICKUP_VALUE);
   gameState.fuelPickups.splice(index, 1);
+  const pos = getPlayerScreenPosition();
+  createBurst(pos.x, pos.y, 120, 20, 1.5);
+  playPickupSound();
+}
+
+function collectSlowBuff(index) {
+  gameState.slowBuffTimer = SLOW_BUFF_DURATION;
+  gameState.slowBuffPickups.splice(index, 1);
+  const pos = getPlayerScreenPosition();
+  createBurst(pos.x, pos.y, 200, 30, 2);
+  playSlowBuffSound();
 }
 
 function updateHealthPickups() {
@@ -92,12 +134,49 @@ function updateFuelPickups() {
     const distanceToPickup = pickup.angle - gameState.distance;
 
     if (
-      Math.abs(distanceToPickup) < PICKUP_COLLISION_WINDOW &&
-      Math.abs(gameState.height - pickup.pos) < PLAYER_RADIUS + FUEL_PICKUP_RADIUS
+      Math.abs(distanceToPickup) < PICKUP_COLLISION_WINDOW * 0.7 &&
+      Math.abs(gameState.height - pickup.pos) < PLAYER_RADIUS + FUEL_PICKUP_RADIUS - 2
     ) {
       collectFuelPickup(i);
     }
   }
+}
+
+function updateSlowBuffPickups() {
+  for (let i = gameState.slowBuffPickups.length - 1; i >= 0; i--) {
+    const pickup = gameState.slowBuffPickups[i];
+
+    if (pickup.angle < gameState.distance - Math.PI) {
+      gameState.slowBuffPickups.splice(i, 1);
+      continue;
+    }
+
+    const distanceToPickup = pickup.angle - gameState.distance;
+
+    if (
+      Math.abs(distanceToPickup) < PICKUP_COLLISION_WINDOW &&
+      Math.abs(gameState.height - pickup.pos) < PLAYER_RADIUS + SLOW_BUFF_RADIUS
+    ) {
+      collectSlowBuff(i);
+    }
+  }
+
+  if (gameState.slowBuffTimer > 0) {
+    return;
+  }
+
+  if (gameState.slowBuffPickups.length >= SLOW_BUFF_MAX_ONSCREEN) {
+    return;
+  }
+
+  if (Math.random() >= SLOW_BUFF_SPAWN_CHANCE) {
+    return;
+  }
+
+  gameState.slowBuffPickups.push({
+    angle: gameState.distance + Math.PI + Math.random() * Math.PI * 2,
+    pos: 24 + Math.random() * (TUNNEL_WIDTH - 48)
+  });
 }
 
 function drawHeartIcon(ctx, x, y, size) {
@@ -166,6 +245,32 @@ function drawFuelPickup(ctx, x, y) {
   ctx.restore();
 }
 
+function drawSlowBuff(ctx, x, y) {
+  ctx.save();
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = 'rgba(50, 200, 255, 0.95)';
+
+  ctx.fillStyle = 'rgba(50, 200, 255, 0.25)';
+  ctx.beginPath();
+  ctx.arc(x, y, SLOW_BUFF_RADIUS + 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(50, 200, 255, 0.95)';
+  ctx.beginPath();
+  ctx.moveTo(x, y - SLOW_BUFF_RADIUS);
+  ctx.lineTo(x + SLOW_BUFF_RADIUS, y);
+  ctx.lineTo(x, y + SLOW_BUFF_RADIUS);
+  ctx.lineTo(x - SLOW_BUFF_RADIUS, y);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.beginPath();
+  ctx.arc(x - 3, y - 3, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawPickupSet(ctx, pickups, drawIcon, renderOffsetR, startTheta, endTheta) {
   for (const pickup of pickups) {
     if (pickup.angle < startTheta || pickup.angle > endTheta) {
@@ -185,9 +290,11 @@ function drawPickupSet(ctx, pickups, drawIcon, renderOffsetR, startTheta, endThe
 export function updatePickups() {
   updateHealthPickups();
   updateFuelPickups();
+  updateSlowBuffPickups();
 }
 
 export function drawPickups(ctx, renderOffsetR, startTheta, endTheta) {
   drawPickupSet(ctx, gameState.healthPickups, drawHealthPickup, renderOffsetR, startTheta, endTheta);
   drawPickupSet(ctx, gameState.fuelPickups, drawFuelPickup, renderOffsetR, startTheta, endTheta);
+  drawPickupSet(ctx, gameState.slowBuffPickups, drawSlowBuff, renderOffsetR, startTheta, endTheta);
 }

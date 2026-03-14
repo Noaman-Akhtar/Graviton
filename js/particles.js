@@ -6,6 +6,26 @@ import {
 import { gameState, lastPlayerPos, setLastPlayerPos } from './state.js';
 import { getPlayerScreenPosition } from './utils.js';
 
+export function createBurst(x, y, hue, count = 15, speedMultiplier = 1) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = (0.5 + Math.random() * 2) * speedMultiplier;
+    const life = TRAIL_SPARKLE_MIN_LIFE + Math.random() * 20;
+
+    gameState.trailSparkles.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life,
+      maxLife: life,
+      size: 2 + Math.random() * 4,
+      hue,
+      twinkleOffset: Math.random() * Math.PI * 2
+    });
+  }
+}
+
 export function updateTrailSparkles(spawnNew = false) {
   const playerPos = getPlayerScreenPosition();
   const previousPlayerPos = lastPlayerPos ?? playerPos;
@@ -39,7 +59,7 @@ export function updateTrailSparkles(spawnNew = false) {
           life,
           maxLife: life,
           size: 1 + Math.random() * 2,
-          hue: 42 + Math.random() * 20,
+          hue: 16 + Math.random() * 24,
           twinkleOffset: Math.random() * Math.PI * 2
         });
       }
@@ -70,7 +90,7 @@ export function drawTrailSparkles(ctx) {
   for (const sparkle of gameState.trailSparkles) {
     const lifeRatio = sparkle.life / sparkle.maxLife;
     const twinkle = 0.65 + 0.35 * Math.sin(Date.now() * 0.03 + sparkle.twinkleOffset);
-    const radius = sparkle.size * lifeRatio * twinkle;
+    const radius = Math.max(0.1, sparkle.size * lifeRatio * twinkle);
 
     ctx.save();
     ctx.globalAlpha = Math.max(0, lifeRatio * 0.95);
@@ -79,7 +99,7 @@ export function drawTrailSparkles(ctx) {
     ctx.shadowColor = `hsla(${sparkle.hue}, 100%, 75%, ${lifeRatio})`;
 
     ctx.beginPath();
-    ctx.arc(sparkle.x, sparkle.y, Math.max(0.6, radius), 0, Math.PI * 2);
+    ctx.arc(sparkle.x, sparkle.y, radius, 0, Math.PI * 2);
     ctx.fill();
 
     if (sparkle.size > 1.4) {

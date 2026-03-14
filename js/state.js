@@ -8,7 +8,7 @@ import {
   START_RADIUS,
   TUNNEL_WIDTH
 } from './config.js';
-import { playDamageSound, playDeathSound } from './audio.js';
+import { playCollisionSound, playDeathSound, stopBackgroundMusic } from './audio.js';
 import { createBurst } from './particles.js';
 import { getPlayerScreenPosition } from './utils.js';
 
@@ -83,6 +83,7 @@ export function setGameOver(value = true) {
     gameState.deathFallRadius = START_RADIUS + gameState.height;
     gameState.deathFallAngle = gameState.distance;
     gameState.deathFallVelocity = GAME_OVER_FALL_START_SPEED;
+    stopBackgroundMusic();
   }
 
   gameState.gameOver = value;
@@ -107,7 +108,7 @@ export function applyDamage() {
     createBurst(pos.x, pos.y, 15, 50, 4);
     setGameOver(true);
   } else {
-    playDamageSound();
+    playCollisionSound();
     createBurst(pos.x, pos.y, 0, 25, 2.5);
   }
 

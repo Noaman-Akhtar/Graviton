@@ -1,5 +1,4 @@
 import {
-  FLAPS_PER_SPEED_LEVEL,
   INITIAL_OBSTACLE_COUNT,
   MIN_OBSTACLE_SPACING,
   OBSTACLE_CLEANUP_DISTANCE,
@@ -14,12 +13,12 @@ import {
   TUNNEL_WIDTH
 } from './config.js';
 import { applyDamage, gameState, incrementScore } from './state.js';
+import { getDifficultyMultiplier, getDifficultyStage } from './utils.js';
 
 function getCurrentObstacleSpacing() {
-  const spawnLevels = Math.floor(gameState.flapCount / FLAPS_PER_SPEED_LEVEL);
   return Math.max(
     MIN_OBSTACLE_SPACING,
-    START_OBSTACLE_SPACING - spawnLevels * OBSTACLE_SPACING_STEP
+    START_OBSTACLE_SPACING - getDifficultyStage() * OBSTACLE_SPACING_STEP
   );
 }
 
@@ -31,25 +30,9 @@ export function initializeObstacles() {
 }
 
 export function addObstacle(angle) {
-  let gapSize = 135;
-
-  if (gameState.score < 30) {
-    if (gameState.score >= 5) {
-      const difficultyLevel = Math.floor(gameState.score / 5);
-      gapSize = 135 - difficultyLevel * 5;
-    }
-  } else if (gameState.score < 70) {
-    if (gameState.score < 40) {
-      gapSize = 100;
-    } else if (gameState.score < 55) {
-      gapSize = 90;
-    } else {
-      gapSize = 80;
-    }
-  } else {
-    const levelsAfter70 = Math.floor((gameState.score - 70) / 15);
-    gapSize = Math.max(80 - levelsAfter70, 50);
-  }
+  const difficultyMultiplier = getDifficultyMultiplier();
+  const difficultyStage = getDifficultyStage();
+  const gapSize = Math.max(68, 135 / difficultyMultiplier);
 
   gameState.obstacles.push({
     angle: angle,
@@ -59,7 +42,7 @@ export function addObstacle(angle) {
     passed: false,
     failed: false,
     color: `hsl(${Math.random() * 360}, 100%, 60%)`,
-    complexity: Math.floor(Math.random() * 3) + 1,
+    complexity: Math.min(4, Math.floor(Math.random() * 3) + 1 + Math.floor(difficultyStage / 2)),
     roughness: 0.85 + Math.random() * 1.15,
     ridgePhase: Math.random() * Math.PI * 2,
     clusterSkew: (Math.random() - 0.5) * 1.2,

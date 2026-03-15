@@ -1,6 +1,7 @@
 import {
   PLAYER_AURA_RADIUS,
   PLAYER_RADIUS,
+  SLOW_BUFF_DURATION,
   SPIRAL_GROWTH,
   TUNNEL_WIDTH
 } from './config.js';
@@ -9,10 +10,10 @@ import { drawPickups } from './pickups.js';
 import { gameState } from './state.js';
 import { getPlayerScreenPosition, getSpiralRadius } from './utils.js';
 
-let stars = [];
 let meteors = [];
 let backgroundWidth = 0;
 let backgroundHeight = 0;
+let starfieldCanvas = null;
 let lastShipScreenPos = null;
 let lastShipHeading = 0;
 
@@ -37,27 +38,34 @@ function initSpaceBackground(canvas) {
   backgroundWidth = canvas.width;
   backgroundHeight = canvas.height;
 
-  stars = [];
-  for (let i = 0; i < 200; i++) {
-    stars.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      size: Math.random() * 2 + 0.5,
-      brightness: Math.random(),
-      blinkSpeed: Math.random() * 0.02 + 0.01,
-      phase: Math.random() * Math.PI * 2
-    });
+  starfieldCanvas = document.createElement('canvas');
+  starfieldCanvas.width = canvas.width;
+  starfieldCanvas.height = canvas.height;
+
+  const starCtx = starfieldCanvas.getContext('2d');
+  if (starCtx) {
+    for (let i = 0; i < 140; i++) {
+      const x = Math.random() * canvas.width;
+      const y = Math.random() * canvas.height;
+      const size = Math.random() * 2 + 0.5;
+      const alpha = 0.2 + Math.random() * 0.65;
+
+      starCtx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      starCtx.beginPath();
+      starCtx.arc(x, y, size, 0, Math.PI * 2);
+      starCtx.fill();
+    }
   }
 
   meteors = [];
 }
 
 function updateSpaceBackground(canvas) {
-  if (backgroundWidth !== canvas.width || backgroundHeight !== canvas.height || stars.length === 0) {
+  if (backgroundWidth !== canvas.width || backgroundHeight !== canvas.height || !starfieldCanvas) {
     initSpaceBackground(canvas);
   }
 
-  if (Math.random() < 0.012 && meteors.length < 3) {
+  if (Math.random() < 0.01 && meteors.length < 2) {
     createMeteor();
   }
 
@@ -74,16 +82,11 @@ function updateSpaceBackground(canvas) {
   });
 }
 
-function drawSpaceBackground(ctx, canvas, time) {
+function drawSpaceBackground(ctx, canvas) {
   updateSpaceBackground(canvas);
 
-  for (const star of stars) {
-    const twinkle = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(time * 60 * star.blinkSpeed + star.phase));
-    const alpha = 0.25 + star.brightness * 0.55 + twinkle * 0.2;
-    ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(alpha, 1)})`;
-    ctx.beginPath();
-    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-    ctx.fill();
+  if (starfieldCanvas) {
+    ctx.drawImage(starfieldCanvas, 0, 0);
   }
 
   for (const meteor of meteors) {
@@ -150,13 +153,30 @@ function drawHud(ctx) {
     ctx.fillStyle = "#ff0000";
   }
   ctx.fillRect(40, 155, barWidth * fuelRatio, barHeight);
+
+  if (gameState.slowBuffTimer > 0) {
+    const buffRatio = Math.max(0, gameState.slowBuffTimer / SLOW_BUFF_DURATION);
+    const buffSeconds = (gameState.slowBuffTimer / 60).toFixed(1);
+
+    ctx.fillStyle = "white";
+    ctx.fillText("Boost", 40, 195);
+    ctx.textAlign = "right";
+    ctx.fillText(`${buffSeconds}s`, 40 + barWidth, 195);
+    ctx.textAlign = "left";
+
+    ctx.fillStyle = "#333333";
+    ctx.fillRect(40, 205, barWidth, barHeight);
+
+    ctx.fillStyle = "#33bbff";
+    ctx.fillRect(40, 205, barWidth * buffRatio, barHeight);
+  }
 }
 
 export function draw(ctx, canvas) {
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   const time = Date.now() * 0.001;
-  drawSpaceBackground(ctx, canvas, time);
+  drawSpaceBackground(ctx, canvas);
 
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
@@ -431,14 +451,7 @@ export function draw(ctx, canvas) {
     ctx.fillText(`Best: ${gameState.highScore}`, cx, cy + 40);
     ctx.font = "20px sans-serif";
     ctx.fillText("Restart or Return to Menu", cx, cy + 90);
-  } else if (!gameState.gameStarted && gameState.hasStartedOnce) {
-    ctx.fillStyle = "white";
-    ctx.font = "bold 30px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("Tap / Space to Start", cx, cy);
-    ctx.font = "20px sans-serif";
-    ctx.fillText(`Top Score: ${gameState.highScore}`, cx, cy + 40);
-  } else {
+  } else if (gameState.gameStarted) {
     ctx.fillStyle = "white";
     ctx.font = "bold 40px sans-serif";
     ctx.textAlign = "right";

@@ -1,4 +1,7 @@
 import {
+  EMERGENCY_FUEL_COLLISION_BONUS,
+  EMERGENCY_FUEL_LOOKAHEAD,
+  EMERGENCY_FUEL_MIN_RESERVE,
   FUEL_PICKUP_INTERVAL,
   FUEL_PICKUP_RADIUS,
   FUEL_PICKUP_VALUE,
@@ -19,10 +22,10 @@ import {
 } from './config.js';
 import { gameState } from './state.js';
 import { getPlayerScreenPosition, getSpiralRadius } from './utils.js';
-import { playPickupSound, playSlowBuffSound } from './audio.js';
+import { playDiamondSound, playFuelSound, playHealthSound } from './audio.js';
 import { createBurst } from './particles.js';
 
-function calculateFuelPickupPosition(angle) {
+function calculateFuelPickupPosition(angle, emergency = false) {
   let bestObstacle = null;
   let bestDistance = Infinity;
 
@@ -36,14 +39,25 @@ function calculateFuelPickupPosition(angle) {
   }
 
   if (bestObstacle) {
-    const innerPadding = Math.min(26, Math.max(14, bestObstacle.gapSize * 0.2));
+    const innerPadding = emergency
+      ? Math.min(20, Math.max(10, bestObstacle.gapSize * 0.14))
+      : Math.min(26, Math.max(14, bestObstacle.gapSize * 0.2));
     const minPos = bestObstacle.gapPos + innerPadding;
     const maxPos = bestObstacle.gapPos + bestObstacle.gapSize - innerPadding;
     const centerPos = (minPos + maxPos) * 0.5;
+
+    if (emergency) {
+      return centerPos;
+    }
+
     const offsetSpan = Math.max(10, (maxPos - minPos) * 0.32);
     const offsetDirection = Math.sin(angle * 2.1) > 0 ? 1 : -1;
     const targetPos = centerPos + offsetDirection * offsetSpan;
     return Math.max(minPos, Math.min(maxPos, targetPos));
+  }
+
+  if (emergency) {
+    return TUNNEL_WIDTH / 2;
   }
 
   const centerOffset = Math.sin(angle * 1.9) * 32;
@@ -55,7 +69,7 @@ function collectHealthPickup(index) {
   gameState.healthPickups.splice(index, 1);
   const pos = getPlayerScreenPosition();
   createBurst(pos.x, pos.y, 330, 20, 1.5);
-  playPickupSound();
+  playHealthSound();
 }
 
 function collectFuelPickup(index) {
@@ -63,7 +77,29 @@ function collectFuelPickup(index) {
   gameState.fuelPickups.splice(index, 1);
   const pos = getPlayerScreenPosition();
   createBurst(pos.x, pos.y, 120, 20, 1.5);
-  playPickupSound();
+  playFuelSound();
+}
+
+function hasPendingEmergencyFuel() {
+  return gameState.fuelPickups.some((pickup) => pickup.emergency && pickup.angle >= gameState.distance);
+}
+
+function spawnEmergencyFuelPickup(missedPickup) {
+  if (hasPendingEmergencyFuel()) {
+    return;
+  }
+
+  const emergencyAngle = Math.max(
+    gameState.distance + EMERGENCY_FUEL_LOOKAHEAD,
+    missedPickup.angle + EMERGENCY_FUEL_LOOKAHEAD * 0.55
+  );
+
+  gameState.fuel = Math.max(gameState.fuel, EMERGENCY_FUEL_MIN_RESERVE);
+  gameState.fuelPickups.push({
+    angle: emergencyAngle,
+    pos: calculateFuelPickupPosition(emergencyAngle, true),
+    emergency: true
+  });
 }
 
 function collectSlowBuff(index) {
@@ -71,7 +107,7 @@ function collectSlowBuff(index) {
   gameState.slowBuffPickups.splice(index, 1);
   const pos = getPlayerScreenPosition();
   createBurst(pos.x, pos.y, 200, 30, 2);
-  playSlowBuffSound();
+  playDiamondSound();
 }
 
 function updateHealthPickups() {
@@ -117,7 +153,8 @@ function updateFuelPickups() {
 
     gameState.fuelPickups.push({
       angle,
-      pos: calculateFuelPickupPosition(angle)
+      pos: calculateFuelPickupPosition(angle),
+      emergency: false
     });
 
     gameState.nextFuelPickupAngle += FUEL_PICKUP_INTERVAL;
@@ -125,19 +162,26 @@ function updateFuelPickups() {
 
   for (let i = gameState.fuelPickups.length - 1; i >= 0; i--) {
     const pickup = gameState.fuelPickups[i];
+    const distanceToPickup = pickup.angle - gameState.distance;
+    const collisionWindow = pickup.emergency ? PICKUP_COLLISION_WINDOW : PICKUP_COLLISION_WINDOW * 0.7;
+    const heightAllowance = pickup.emergency
+      ? PLAYER_RADIUS + FUEL_PICKUP_RADIUS + EMERGENCY_FUEL_COLLISION_BONUS
+      : PLAYER_RADIUS + FUEL_PICKUP_RADIUS - 2;
 
-    if (pickup.angle < gameState.distance - Math.PI) {
-      gameState.fuelPickups.splice(i, 1);
+    if (
+      Math.abs(distanceToPickup) < collisionWindow &&
+      Math.abs(gameState.height - pickup.pos) < heightAllowance
+    ) {
+      collectFuelPickup(i);
       continue;
     }
 
-    const distanceToPickup = pickup.angle - gameState.distance;
+    if (distanceToPickup < -collisionWindow * 1.15) {
+      if (!pickup.emergency) {
+        spawnEmergencyFuelPickup(pickup);
+      }
 
-    if (
-      Math.abs(distanceToPickup) < PICKUP_COLLISION_WINDOW * 0.7 &&
-      Math.abs(gameState.height - pickup.pos) < PLAYER_RADIUS + FUEL_PICKUP_RADIUS - 2
-    ) {
-      collectFuelPickup(i);
+      gameState.fuelPickups.splice(i, 1);
     }
   }
 }

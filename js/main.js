@@ -1,6 +1,4 @@
 import {
-  FLAPS_PER_SPEED_LEVEL,
-  FLAP_SCROLL_SPEED_STEP,
   FUEL_DRAIN_RATE,
   GAME_OVER_FALL_ACCELERATION,
   GRAVITY,
@@ -8,21 +6,27 @@ import {
   SLOW_BUFF_AUTOPILOT_BASE_STEP,
   SLOW_BUFF_AUTOPILOT_MAX_STEP,
   SLOW_BUFF_GRAVITY_MULTIPLIER,
+  SLOW_BUFF_MAX_SCROLL_SPEED,
+  SLOW_BUFF_MIN_SCROLL_SPEED,
   SLOW_BUFF_SPEED_MULTIPLIER,
   START_SCROLL_SPEED,
   TUNNEL_WIDTH
 } from './config.js';
-import { playDeathSound } from './audio.js';
+import { playDeathSound, playLowFuelWarning } from './audio.js';
 import { resetGame, setupInput, syncUiOverlays } from './input.js';
 import { getSlowBuffTargetHeight, updateObstacles } from './obstacles.js';
 import { createBurst, updateTrailSparkles } from './particles.js';
 import { updatePickups } from './pickups.js';
 import { draw } from './renderer.js';
 import { applyDamage, gameState, setGameOver } from './state.js';
-import { getPlayerScreenPosition } from './utils.js';
+import { getDifficultyMultiplier, getPlayerScreenPosition } from './utils.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
+const FIXED_STEP_MS = 1000 / 60;
+const MAX_CATCH_UP_STEPS = 5;
+let lastFrameTime = performance.now();
+let accumulatedTime = 0;
 
 function resize() {
   canvas.width = window.innerWidth;
@@ -54,6 +58,10 @@ function update() {
     gameState.fuel -= FUEL_DRAIN_RATE;
   }
 
+  if (gameState.fuel > 0 && gameState.fuel <= gameState.maxFuel * 0.25) {
+    playLowFuelWarning();
+  }
+
   if (gameState.fuel <= 0) {
     gameState.fuel = 0;
     const pos = getPlayerScreenPosition();
@@ -68,15 +76,16 @@ function update() {
     gameState.invincibleTimer--;
   }
 
-  const speedLevels = Math.floor(gameState.flapCount / FLAPS_PER_SPEED_LEVEL);
-  const speedIncrease = speedLevels * FLAP_SCROLL_SPEED_STEP;
-  let currentScrollSpeed = Math.min(START_SCROLL_SPEED + speedIncrease, MAX_SCROLL_SPEED);
+  let currentScrollSpeed = Math.min(START_SCROLL_SPEED * getDifficultyMultiplier(), MAX_SCROLL_SPEED);
   let currentGravity = GRAVITY;
   let autoPilotActive = false;
 
   if (gameState.slowBuffTimer > 0) {
     gameState.slowBuffTimer--;
-    currentScrollSpeed *= SLOW_BUFF_SPEED_MULTIPLIER;
+    currentScrollSpeed = Math.min(
+      SLOW_BUFF_MAX_SCROLL_SPEED,
+      Math.max(currentScrollSpeed * SLOW_BUFF_SPEED_MULTIPLIER, SLOW_BUFF_MIN_SCROLL_SPEED)
+    );
     currentGravity *= SLOW_BUFF_GRAVITY_MULTIPLIER;
     autoPilotActive = true;
   }
@@ -124,8 +133,22 @@ function update() {
   updateTrailSparkles(true);
 }
 
-function gameLoop() {
-  update();
+function gameLoop(frameTime) {
+  const frameDelta = Math.min(100, frameTime - lastFrameTime);
+  lastFrameTime = frameTime;
+  accumulatedTime += frameDelta;
+
+  let steps = 0;
+  while (accumulatedTime >= FIXED_STEP_MS && steps < MAX_CATCH_UP_STEPS) {
+    update();
+    accumulatedTime -= FIXED_STEP_MS;
+    steps++;
+  }
+
+  if (steps === MAX_CATCH_UP_STEPS) {
+    accumulatedTime = 0;
+  }
+
   syncUiOverlays();
   draw(ctx, canvas);
   requestAnimationFrame(gameLoop);

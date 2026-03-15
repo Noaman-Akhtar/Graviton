@@ -9,16 +9,47 @@
   <div id="main-menu">
     <h1 class="game-title">GRAVITON</h1>
     <div class="ship-selector">
-      <button id="prev-ship" class="nav-btn" type="button">◀</button>
+      <button id="prev-ship" class="nav-btn" type="button">&#9664;</button>
       <div id="ship-display">
         <div class="ship-preview-aura"></div>
         <div class="ship-preview-body"></div>
         <div class="ship-preview-highlight"></div>
         <div class="ship-preview-engine"></div>
       </div>
-      <button id="next-ship" class="nav-btn" type="button">▶</button>
+      <button id="next-ship" class="nav-btn" type="button">&#9654;</button>
     </div>
-    <button id="play-btn" class="menu-btn" type="button">PLAY</button>
+    <div class="menu-actions">
+      <button id="play-btn" class="menu-btn" type="button">PLAY</button>`
+      <button id="music-btn" class="alt-btn menu-secondary-btn" type="button">MUSIC</button>
+    </div>
+  </div>
+  <div id="music-menu" class="overlay-panel hidden">
+    <h2 class="overlay-title">MUSIC</h2>
+    <div class="settings-stack">
+      <div class="slider-group">
+        <div class="sound-label-row">
+          <span class="sound-label">Background Volume</span>
+          <span id="music-volume-value" class="slider-value">35%</span>
+        </div>
+        <input
+          id="music-volume"
+          class="volume-slider"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value="35"
+          aria-label="Background music volume"
+        >
+      </div>
+      <div class="sound-control">
+        <span class="sound-label">Effects</span>
+        <button id="effects-toggle" class="toggle-btn" type="button" aria-pressed="true">ON</button>
+      </div>
+    </div>
+    <div class="overlay-actions">
+      <button id="music-back-btn" class="alt-btn" type="button">BACK</button>
+    </div>
   </div>
   <div id="game-over-menu" class="overlay-panel hidden">
     <h2 class="overlay-title">GAME OVER</h2>

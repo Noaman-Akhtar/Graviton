@@ -1,19 +1,35 @@
 import { FLAP_FUEL_COST, FLAP_STRENGTH } from './config.js';
 import { gameState, resetGameState } from './state.js';
 import { initializeObstacles } from './obstacles.js';
-import { playFlapSound } from './audio.js';
+import {
+  getMusicVolume,
+  isEffectsEnabled,
+  playButtonSound,
+  playFlapSound,
+  playTapSound,
+  setEffectsEnabled,
+  setMusicVolume,
+  startBackgroundMusic,
+  stopBackgroundMusic
+} from './audio.js';
 
 let inputInitialized = false;
 
 function getMenuElements() {
   return {
     menu: document.getElementById('main-menu'),
+    musicMenu: document.getElementById('music-menu'),
     gameOverMenu: document.getElementById('game-over-menu'),
     playBtn: document.getElementById('play-btn'),
+    musicBtn: document.getElementById('music-btn'),
+    musicBackBtn: document.getElementById('music-back-btn'),
     restartBtn: document.getElementById('restart-btn'),
     backMenuBtn: document.getElementById('back-menu-btn'),
     prevBtn: document.getElementById('prev-ship'),
     nextBtn: document.getElementById('next-ship'),
+    effectsToggle: document.getElementById('effects-toggle'),
+    musicVolume: document.getElementById('music-volume'),
+    musicVolumeValue: document.getElementById('music-volume-value'),
     shipDisplay: document.getElementById('ship-display'),
     finalScore: document.getElementById('final-score'),
     finalBest: document.getElementById('final-best')
@@ -23,6 +39,11 @@ function getMenuElements() {
 function isMainMenuVisible() {
   const { menu } = getMenuElements();
   return Boolean(menu && !menu.classList.contains('hidden'));
+}
+
+function isMusicMenuVisible() {
+  const { musicMenu } = getMenuElements();
+  return Boolean(musicMenu && !musicMenu.classList.contains('hidden'));
 }
 
 function isGameOverMenuVisible() {
@@ -41,6 +62,20 @@ function showMenu() {
   const { menu } = getMenuElements();
   if (menu) {
     menu.classList.remove('hidden');
+  }
+}
+
+function hideMusicMenu() {
+  const { musicMenu } = getMenuElements();
+  if (musicMenu) {
+    musicMenu.classList.add('hidden');
+  }
+}
+
+function showMusicMenu() {
+  const { musicMenu } = getMenuElements();
+  if (musicMenu) {
+    musicMenu.classList.remove('hidden');
   }
 }
 
@@ -75,7 +110,46 @@ function updateGameOverUI() {
   }
 }
 
+function updateEffectsToggle(button, enabled) {
+  if (!button) {
+    return;
+  }
+
+  button.textContent = enabled ? 'ON' : 'OFF';
+  button.setAttribute('aria-pressed', String(enabled));
+  button.classList.toggle('off', !enabled);
+}
+
+function updateAudioUi() {
+  const { effectsToggle, musicVolume, musicVolumeValue } = getMenuElements();
+  const musicPercent = Math.round(getMusicVolume() * 100);
+
+  updateEffectsToggle(effectsToggle, isEffectsEnabled());
+
+  if (musicVolume) {
+    musicVolume.value = `${musicPercent}`;
+  }
+
+  if (musicVolumeValue) {
+    musicVolumeValue.textContent = `${musicPercent}%`;
+  }
+}
+
+function openMusicMenu() {
+  playButtonSound();
+  updateAudioUi();
+  hideMenu();
+  showMusicMenu();
+}
+
+function closeMusicMenu() {
+  playButtonSound();
+  hideMusicMenu();
+  showMenu();
+}
+
 function restartFromOverlay() {
+  playButtonSound();
   resetGame();
   hideMenu();
   hideGameOverMenu();
@@ -83,24 +157,29 @@ function restartFromOverlay() {
 }
 
 function returnToMainMenu() {
+  playButtonSound();
   resetGame();
   hideGameOverMenu();
   showMenu();
 }
 
 export function resetGame() {
+  stopBackgroundMusic();
   resetGameState();
   initializeObstacles();
   updateShipUI();
+  updateAudioUi();
+  hideMusicMenu();
   hideGameOverMenu();
 }
 
 export function flap() {
-  if (isMainMenuVisible() || isGameOverMenuVisible()) {
+  if (isMainMenuVisible() || isMusicMenuVisible() || isGameOverMenuVisible()) {
     return;
   }
 
   if (gameState.gameStarted && !gameState.gameOver && gameState.slowBuffTimer > 0) {
+    playTapSound();
     return;
   }
 
@@ -121,6 +200,7 @@ export function flap() {
   }
 
   if (!gameState.gameStarted) {
+    startBackgroundMusic();
     gameState.gameStarted = true;
     gameState.hasStartedOnce = true;
   }
@@ -128,6 +208,7 @@ export function flap() {
   gameState.fuel -= FLAP_FUEL_COST;
   gameState.flapCount++;
   gameState.velocity = FLAP_STRENGTH;
+  playTapSound();
   playFlapSound();
 }
 
@@ -138,9 +219,21 @@ export function setupInput() {
 
   inputInitialized = true;
 
-  const { playBtn, prevBtn, nextBtn } = getMenuElements();
+  const {
+    playBtn,
+    musicBtn,
+    musicBackBtn,
+    prevBtn,
+    nextBtn,
+    effectsToggle,
+    musicVolume,
+    restartBtn,
+    backMenuBtn
+  } = getMenuElements();
+
   updateShipUI();
   updateGameOverUI();
+  updateAudioUi();
 
   window.addEventListener('keydown', (event) => {
     if (event.code !== 'Space') {
@@ -156,20 +249,20 @@ export function setupInput() {
   });
 
   window.addEventListener('mousedown', (event) => {
-    if (event.target instanceof Element && event.target.closest('button')) {
+    if (event.target instanceof Element && event.target.closest('button, input')) {
       return;
     }
-    if (isGameOverMenuVisible()) {
+    if (isGameOverMenuVisible() || isMusicMenuVisible()) {
       return;
     }
     flap();
   });
 
   window.addEventListener('touchstart', (event) => {
-    if (event.target instanceof Element && event.target.closest('button')) {
+    if (event.target instanceof Element && event.target.closest('button, input')) {
       return;
     }
-    if (isGameOverMenuVisible()) {
+    if (isGameOverMenuVisible() || isMusicMenuVisible()) {
       return;
     }
     event.preventDefault();
@@ -178,13 +271,23 @@ export function setupInput() {
 
   if (playBtn) {
     playBtn.addEventListener('click', () => {
+      playButtonSound();
       hideMenu();
       flap();
     });
   }
 
+  if (musicBtn) {
+    musicBtn.addEventListener('click', openMusicMenu);
+  }
+
+  if (musicBackBtn) {
+    musicBackBtn.addEventListener('click', closeMusicMenu);
+  }
+
   if (prevBtn) {
     prevBtn.addEventListener('click', () => {
+      playButtonSound();
       gameState.selectedShipIndex =
         (gameState.selectedShipIndex - 1 + gameState.shipColors.length) % gameState.shipColors.length;
       updateShipUI();
@@ -193,12 +296,39 @@ export function setupInput() {
 
   if (nextBtn) {
     nextBtn.addEventListener('click', () => {
+      playButtonSound();
       gameState.selectedShipIndex = (gameState.selectedShipIndex + 1) % gameState.shipColors.length;
       updateShipUI();
     });
   }
 
-  const { restartBtn, backMenuBtn } = getMenuElements();
+  if (effectsToggle) {
+    effectsToggle.addEventListener('click', () => {
+      const nextEnabled = !isEffectsEnabled();
+
+      if (nextEnabled) {
+        setEffectsEnabled(true);
+        playButtonSound();
+      } else {
+        playButtonSound();
+        setEffectsEnabled(false);
+      }
+
+      updateAudioUi();
+    });
+  }
+
+  if (musicVolume) {
+    musicVolume.addEventListener('input', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
+      }
+
+      setMusicVolume(Number(target.value) / 100);
+      updateAudioUi();
+    });
+  }
 
   if (restartBtn) {
     restartBtn.addEventListener('click', restartFromOverlay);

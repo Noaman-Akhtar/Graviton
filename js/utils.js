@@ -18,3 +18,15 @@ export function getPlayerScreenPosition() {
     y: playerScreenR * Math.sin(playerAngle)
   };
 }
+
+export function getRingCount(distance = gameState.distance) {
+  return Math.max(0, Math.floor(distance / (Math.PI * 2)));
+}
+
+export function getDifficultyStage(distance = gameState.distance) {
+  return Math.floor(getRingCount(distance) / 5);
+}
+
+export function getDifficultyMultiplier(distance = gameState.distance) {
+  return 1 + getDifficultyStage(distance) * 0.1;
+}

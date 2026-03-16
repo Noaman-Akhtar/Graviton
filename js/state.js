@@ -1,9 +1,12 @@
 import {
   FUEL_PICKUP_START_ANGLE,
   GAME_OVER_FALL_START_SPEED,
+  HIT_STOP_DURATION,
   INVINCIBLE_DURATION,
   MAX_FUEL,
   MAX_HEALTH,
+  SHAKE_INTENSITY_DAMAGE,
+  SHAKE_INTENSITY_DEATH,
   START_HEALTH,
   START_RADIUS,
   TUNNEL_WIDTH
@@ -51,6 +54,9 @@ function createGameState(
     maxFuel: MAX_FUEL,
     invincibleTimer: 0,
     slowBuffTimer: 0,
+    hitStopTimer: 0,
+    shakeAmount: 0,
+    aiStressLevel: 0,
     deathFallActive: false,
     deathFallRadius: START_RADIUS + TUNNEL_WIDTH / 2,
     deathFallAngle: 0,
@@ -100,14 +106,18 @@ export function applyDamage() {
 
   gameState.health--;
   gameState.invincibleTimer = INVINCIBLE_DURATION;
+  gameState.hitStopTimer = HIT_STOP_DURATION;
+  gameState.aiStressLevel = Math.max(0, gameState.aiStressLevel - 0.4);
   const pos = getPlayerScreenPosition();
 
   if (gameState.health <= 0) {
     gameState.health = 0;
+    gameState.shakeAmount = SHAKE_INTENSITY_DEATH;
     playDeathSound();
     createBurst(pos.x, pos.y, 15, 50, 4);
     setGameOver(true);
   } else {
+    gameState.shakeAmount = SHAKE_INTENSITY_DAMAGE;
     playCollisionSound();
     createBurst(pos.x, pos.y, 0, 25, 2.5);
   }

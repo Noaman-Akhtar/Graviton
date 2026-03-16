@@ -42,9 +42,21 @@
           aria-label="Background music volume"
         >
       </div>
-      <div class="sound-control">
-        <span class="sound-label">Effects</span>
-        <button id="effects-toggle" class="toggle-btn" type="button" aria-pressed="true">ON</button>
+      <div class="slider-group">
+        <div class="sound-label-row">
+          <span class="sound-label">Effects Volume</span>
+          <span id="effects-volume-value" class="slider-value">70%</span>
+        </div>
+        <input
+          id="effects-volume"
+          class="volume-slider"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value="70"
+          aria-label="Effects volume"
+        >
       </div>
     </div>
     <div class="overlay-actions">

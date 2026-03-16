@@ -32,12 +32,23 @@ export function initializeObstacles() {
 export function addObstacle(angle) {
   const difficultyMultiplier = getDifficultyMultiplier();
   const difficultyStage = getDifficultyStage();
-  const gapSize = Math.max(68, 135 / difficultyMultiplier);
+  const baseGap = Math.max(68, 135 / difficultyMultiplier);
+  const minGap = 55;
+  const gapSize = baseGap - (gameState.aiStressLevel * (baseGap - minGap));
+
+  const baseGapPos = Math.random() * (TUNNEL_WIDTH - gapSize - 10) + 5;
+  const isDrifter = Math.random() < (gameState.aiStressLevel * 0.85);
+  const driftSpeed = isDrifter ? (Math.random() * 0.002 + 0.001) + (gameState.aiStressLevel * 0.003) : 0;
+  const driftRange = isDrifter ? (Math.random() * 15 + 10) + (gameState.aiStressLevel * 20) : 0;
 
   gameState.obstacles.push({
     angle: angle,
     gapSize: gapSize,
-    gapPos: Math.random() * (TUNNEL_WIDTH - gapSize - 10) + 5,
+    baseGapPos: baseGapPos,
+    gapPos: baseGapPos,
+    driftSpeed: driftSpeed,
+    driftRange: driftRange,
+    driftPhase: Math.random() * Math.PI * 2,
     width: 0.1,
     passed: false,
     failed: false,
@@ -89,11 +100,18 @@ export function updateObstacles() {
   const lastObstacle = gameState.obstacles[gameState.obstacles.length - 1];
 
   if (lastObstacle && lastObstacle.angle < gameState.distance + OBSTACLE_LOOKAHEAD) {
-    const spacing = getCurrentObstacleSpacing();
-    addObstacle(lastObstacle.angle + spacing + Math.random() * 0.2);
+    const baseSpacing = getCurrentObstacleSpacing();
+    const stressSpacing = baseSpacing * (1 - gameState.aiStressLevel * 0.3);
+    const spacing = Math.max(MIN_OBSTACLE_SPACING, stressSpacing);
+    addObstacle(lastObstacle.angle + spacing + Math.random() * 0.15);
   }
 
   for (const obs of gameState.obstacles) {
+    if (obs.driftSpeed > 0) {
+      obs.gapPos = obs.baseGapPos + Math.sin(Date.now() * obs.driftSpeed + obs.driftPhase) * obs.driftRange;
+      obs.gapPos = Math.max(5, Math.min(TUNNEL_WIDTH - obs.gapSize - 5, obs.gapPos));
+    }
+
     const distToObs = obs.angle - gameState.distance;
 
     if (distToObs < 0.05 && distToObs > -0.05) {

@@ -34,6 +34,8 @@ function createMeteor(initial = false) {
   });
 }
 
+let starData = [];
+
 function initSpaceBackground(canvas) {
   backgroundWidth = canvas.width;
   backgroundHeight = canvas.height;
@@ -42,19 +44,27 @@ function initSpaceBackground(canvas) {
   starfieldCanvas.width = canvas.width;
   starfieldCanvas.height = canvas.height;
 
+  starData = [];
   const starCtx = starfieldCanvas.getContext('2d');
   if (starCtx) {
-    for (let i = 0; i < 140; i++) {
+    for (let i = 0; i < 280; i++) {
       const x = Math.random() * canvas.width;
       const y = Math.random() * canvas.height;
-      const size = Math.random() * 2 + 0.5;
-      const alpha = 0.2 + Math.random() * 0.65;
+      const size = Math.random() * 2.5 + 0.6;
+      const alpha = 0.35 + Math.random() * 0.65;
+      const twinkleSpeed = 0.002 + Math.random() * 0.006;
+      const twinklePhase = Math.random() * Math.PI * 2;
+
+      starData.push({ x, y, size, alpha, twinkleSpeed, twinklePhase });
 
       starCtx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      starCtx.shadowBlur = size * 3;
+      starCtx.shadowColor = 'rgba(200, 220, 255, 0.8)';
       starCtx.beginPath();
       starCtx.arc(x, y, size, 0, Math.PI * 2);
       starCtx.fill();
     }
+    starCtx.shadowBlur = 0;
   }
 
   meteors = [];
@@ -65,7 +75,7 @@ function updateSpaceBackground(canvas) {
     initSpaceBackground(canvas);
   }
 
-  if (Math.random() < 0.01 && meteors.length < 2) {
+  if (Math.random() < 0.04 && meteors.length < 5) {
     createMeteor();
   }
 
@@ -88,6 +98,22 @@ function drawSpaceBackground(ctx, canvas) {
   if (starfieldCanvas) {
     ctx.drawImage(starfieldCanvas, 0, 0);
   }
+
+  const now = Date.now();
+  for (const star of starData) {
+    const twinkle = 0.4 + 0.6 * Math.sin(now * star.twinkleSpeed + star.twinklePhase);
+    if (twinkle > 0.7) {
+      ctx.globalAlpha = star.alpha * twinkle;
+      ctx.fillStyle = 'rgba(220, 235, 255, 1)';
+      ctx.shadowBlur = star.size * 4;
+      ctx.shadowColor = 'rgba(180, 210, 255, 0.9)';
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size * twinkle, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
 
   for (const meteor of meteors) {
     const alpha = meteor.life / meteor.maxLife;
@@ -115,18 +141,15 @@ function drawSpaceBackground(ctx, canvas) {
 
 function drawHud(ctx) {
   ctx.fillStyle = "white";
-  ctx.font = "bold 40px sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText(gameState.score, 40, 50);
-
   ctx.font = "bold 16px sans-serif";
-  ctx.fillText(`Health: ${gameState.health} / ${gameState.maxHealth}`, 40, 85);
+  ctx.textAlign = "left";
+  ctx.fillText(`Health: ${gameState.health} / ${gameState.maxHealth}`, 40, 50);
 
   const bubbleRadius = 8;
   const bubbleSpacing = 24;
   for (let i = 0; i < gameState.maxHealth; i++) {
     ctx.beginPath();
-    ctx.arc(40 + i * bubbleSpacing, 105, bubbleRadius, 0, Math.PI * 2);
+    ctx.arc(40 + i * bubbleSpacing, 70, bubbleRadius, 0, Math.PI * 2);
     if (i < gameState.health) {
       ctx.fillStyle = "#ffb6c1";
     } else {
@@ -136,14 +159,14 @@ function drawHud(ctx) {
   }
 
   ctx.fillStyle = "white";
-  ctx.fillText("Fuel", 40, 145);
+  ctx.fillText("Fuel", 40, 110);
 
   const barWidth = 120;
   const barHeight = 14;
   const fuelRatio = Math.max(0, gameState.fuel / gameState.maxFuel);
 
   ctx.fillStyle = "#333333";
-  ctx.fillRect(40, 155, barWidth, barHeight);
+  ctx.fillRect(40, 120, barWidth, barHeight);
 
   if (fuelRatio > 0.5) {
     ctx.fillStyle = "#00ff00";
@@ -152,23 +175,23 @@ function drawHud(ctx) {
   } else {
     ctx.fillStyle = "#ff0000";
   }
-  ctx.fillRect(40, 155, barWidth * fuelRatio, barHeight);
+  ctx.fillRect(40, 120, barWidth * fuelRatio, barHeight);
 
   if (gameState.slowBuffTimer > 0) {
     const buffRatio = Math.max(0, gameState.slowBuffTimer / SLOW_BUFF_DURATION);
     const buffSeconds = (gameState.slowBuffTimer / 60).toFixed(1);
 
     ctx.fillStyle = "white";
-    ctx.fillText("Boost", 40, 195);
+    ctx.fillText("Boost", 40, 160);
     ctx.textAlign = "right";
-    ctx.fillText(`${buffSeconds}s`, 40 + barWidth, 195);
+    ctx.fillText(`${buffSeconds}s`, 40 + barWidth, 160);
     ctx.textAlign = "left";
 
     ctx.fillStyle = "#333333";
-    ctx.fillRect(40, 205, barWidth, barHeight);
+    ctx.fillRect(40, 170, barWidth, barHeight);
 
     ctx.fillStyle = "#33bbff";
-    ctx.fillRect(40, 205, barWidth * buffRatio, barHeight);
+    ctx.fillRect(40, 170, barWidth * buffRatio, barHeight);
   }
 }
 
@@ -183,6 +206,16 @@ export function draw(ctx, canvas) {
 
   ctx.save();
   ctx.translate(cx, cy);
+
+  if (gameState.shakeAmount > 0) {
+    ctx.translate(
+      (Math.random() - 0.5) * gameState.shakeAmount,
+      (Math.random() - 0.5) * gameState.shakeAmount
+    );
+    gameState.shakeAmount *= 0.9;
+    if (gameState.shakeAmount < 0.5) gameState.shakeAmount = 0;
+  }
+
   ctx.scale(0.8, 0.8);
 
   const renderOffsetR = SPIRAL_GROWTH * gameState.distance;
@@ -235,47 +268,41 @@ export function draw(ctx, canvas) {
     const notchDepth = obs.notchDepth || 1;
 
     const drawAsteroid = (seed, thickness) => {
-      const jagA = thickness * (0.54 + Math.sin(seed * 1.2 + ridgePhase) * (0.16 + roughness * 0.08));
-      const jagB = thickness * (0.68 + Math.cos(seed * 1.8 + ridgePhase * 0.7) * (0.15 + roughness * 0.06));
-      const jagC = thickness * (0.74 + Math.sin(seed * 2.3 - ridgePhase) * (0.1 + roughness * 0.05));
-      const jagD = thickness * (0.6 + Math.cos(seed * 3.1 + ridgePhase * 0.5) * (0.14 + roughness * 0.05));
-      const jagE = thickness * (0.82 + Math.sin(seed * 2.7 + ridgePhase) * (0.18 + roughness * 0.08));
-      const jagF = thickness * (0.62 + Math.cos(seed * 2.1 - ridgePhase * 0.4) * (0.12 + roughness * 0.06));
-      const jagG = thickness * (0.72 + Math.sin(seed * 1.6 + ridgePhase * 1.2) * (0.16 + roughness * 0.05));
-      const jagH = thickness * (0.58 + Math.cos(seed * 2.9 + ridgePhase) * (0.13 + roughness * 0.06));
-      const jagI = thickness * (0.78 + Math.sin(seed * 3.4 - ridgePhase * 0.8) * (0.12 + roughness * 0.05));
-      const jagJ = thickness * (0.66 + Math.cos(seed * 1.4 + ridgePhase * 0.6) * (0.14 + roughness * 0.05));
-      const jagK = thickness * (0.52 + Math.sin(seed * 2.5 - ridgePhase) * (0.16 + roughness * 0.05));
-      const jagL = thickness * (0.7 + Math.cos(seed * 1.9 + ridgePhase * 1.1) * (0.15 + roughness * 0.05));
+      const sides = 6 + Math.floor(((Math.sin(seed * 7.3) + 1) * 0.5) * 5);
+      const angleStep = (Math.PI * 2) / sides;
+      const vertices = [];
+
+      for (let i = 0; i < sides; i++) {
+        const a = angleStep * i - Math.PI / 2;
+        const radiusVar = thickness * (
+          0.6 + Math.sin(seed * (1.2 + i * 0.7) + ridgePhase * (0.5 + i * 0.3)) * (0.15 + roughness * 0.08)
+          + Math.cos(seed * (2.1 + i * 1.1) - ridgePhase * (0.4 + i * 0.2)) * (0.12 + roughness * 0.06)
+        );
+        vertices.push({
+          x: Math.cos(a) * radiusVar * (1.0 + Math.sin(seed * 3.1 + i) * 0.15),
+          y: Math.sin(a) * radiusVar * (1.2 + Math.cos(seed * 2.3 + i) * 0.2)
+        });
+      }
 
       ctx.fillStyle = "#555";
       ctx.strokeStyle = "#222";
       ctx.lineWidth = 0.05;
       ctx.beginPath();
-      ctx.moveTo(-0.28 * jagA, -1.66);
-      ctx.lineTo(0.08 * jagB, -1.8);
-      ctx.lineTo(0.48 * jagC, -1.34);
-      ctx.lineTo(0.86 * jagD, -0.76);
-      ctx.lineTo(0.94 * jagE, -0.08 * notchDepth);
-      ctx.lineTo(0.62 * jagF, 0.7);
-      ctx.lineTo(0.26 * jagG, 1.5);
-      ctx.lineTo(-0.16 * jagH, 1.68);
-      ctx.lineTo(-0.56 * jagI, 1.1);
-      ctx.lineTo(-0.96 * jagJ, 0.24);
-      ctx.lineTo(-0.84 * jagK, -0.76);
-      ctx.lineTo(-0.48 * jagL, -1.32);
+      ctx.moveTo(vertices[0].x, vertices[0].y);
+      for (let i = 1; i < vertices.length; i++) {
+        ctx.lineTo(vertices[i].x, vertices[i].y);
+      }
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
+      const innerCount = Math.max(3, Math.floor(sides * 0.6));
       ctx.fillStyle = "#3e3e3e";
       ctx.beginPath();
-      ctx.moveTo(0.02 * jagA, -1.22);
-      ctx.lineTo(0.46 * jagB, -0.56);
-      ctx.lineTo(0.34 * jagD, 0.28);
-      ctx.lineTo(0.22 * jagF, 1.18);
-      ctx.lineTo(-0.12 * jagG, 1.28);
-      ctx.lineTo(-0.18 * jagA, 0.08);
+      ctx.moveTo(vertices[0].x * 0.7, vertices[0].y * 0.65);
+      for (let i = 1; i < innerCount; i++) {
+        ctx.lineTo(vertices[i].x * 0.65 + 0.02, vertices[i].y * 0.7);
+      }
       ctx.closePath();
       ctx.fill();
     };
@@ -338,27 +365,36 @@ export function draw(ctx, canvas) {
     drawAsteroidWall(gapEnd, rOuter, 1, false);
   }
 
-  const bhGradient = ctx.createRadialGradient(0, 0, 15, 0, 0, 90);
+  const bhGradient = ctx.createRadialGradient(0, 0, 10, 0, 0, 130);
   bhGradient.addColorStop(0, "rgba(0, 0, 0, 1)");
-  bhGradient.addColorStop(0.5, "rgba(20, 0, 40, 0.9)");
+  bhGradient.addColorStop(0.25, "rgba(0, 0, 0, 0.95)");
+  bhGradient.addColorStop(0.5, "rgba(5, 5, 8, 0.7)");
+  bhGradient.addColorStop(0.75, "rgba(3, 3, 5, 0.3)");
   bhGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = bhGradient;
   ctx.beginPath();
-  ctx.arc(0, 0, 90, 0, Math.PI * 2);
+  ctx.arc(0, 0, 130, 0, Math.PI * 2);
   ctx.fill();
+
+  const outerDiskRadius = 55 + Math.sin(time * 2) * 5;
+  ctx.beginPath();
+  ctx.arc(0, 0, outerDiskRadius, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(120, 0, 255, 0.25)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
 
   const diskRadius = 40 + Math.sin(time * 3) * 4;
   ctx.beginPath();
   ctx.arc(0, 0, diskRadius, 0, Math.PI * 2);
-  ctx.strokeStyle = "rgba(120, 0, 255, 0.5)";
+  ctx.strokeStyle = "rgba(160, 0, 255, 0.45)";
   ctx.lineWidth = 3;
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.arc(0, 0, 25, 0, Math.PI * 2);
+  ctx.arc(0, 0, 28, 0, Math.PI * 2);
   ctx.fillStyle = "#000000";
-  ctx.shadowBlur = 20;
-  ctx.shadowColor = "#9900ff";
+  ctx.shadowBlur = 40;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.95)";
   ctx.fill();
   ctx.shadowBlur = 0;
 

@@ -54,6 +54,16 @@ function update() {
     return;
   }
 
+  if (gameState.hitStopTimer > 0) {
+    gameState.hitStopTimer--;
+    updateTrailSparkles(false);
+    return;
+  }
+
+  if (gameState.invincibleTimer === 0 && gameState.slowBuffTimer === 0) {
+    gameState.aiStressLevel = Math.min(1.0, gameState.aiStressLevel + 0.0003);
+  }
+
   if (gameState.slowBuffTimer <= 0) {
     gameState.fuel -= FUEL_DRAIN_RATE;
   }
@@ -76,7 +86,10 @@ function update() {
     gameState.invincibleTimer--;
   }
 
-  let currentScrollSpeed = Math.min(START_SCROLL_SPEED * getDifficultyMultiplier(), MAX_SCROLL_SPEED);
+  let currentScrollSpeed = Math.min(
+    START_SCROLL_SPEED * getDifficultyMultiplier() + gameState.aiStressLevel * 0.025,
+    MAX_SCROLL_SPEED
+  );
   let currentGravity = GRAVITY;
   let autoPilotActive = false;
 

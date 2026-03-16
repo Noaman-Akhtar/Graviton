@@ -2,12 +2,12 @@ import { FLAP_FUEL_COST, FLAP_STRENGTH } from './config.js';
 import { gameState, resetGameState } from './state.js';
 import { initializeObstacles } from './obstacles.js';
 import {
+  getEffectsVolume,
   getMusicVolume,
-  isEffectsEnabled,
   playButtonSound,
   playFlapSound,
   playTapSound,
-  setEffectsEnabled,
+  setEffectsVolume,
   setMusicVolume,
   startBackgroundMusic,
   stopBackgroundMusic
@@ -27,7 +27,8 @@ function getMenuElements() {
     backMenuBtn: document.getElementById('back-menu-btn'),
     prevBtn: document.getElementById('prev-ship'),
     nextBtn: document.getElementById('next-ship'),
-    effectsToggle: document.getElementById('effects-toggle'),
+    effectsVolume: document.getElementById('effects-volume'),
+    effectsVolumeValue: document.getElementById('effects-volume-value'),
     musicVolume: document.getElementById('music-volume'),
     musicVolumeValue: document.getElementById('music-volume-value'),
     shipDisplay: document.getElementById('ship-display'),
@@ -110,21 +111,18 @@ function updateGameOverUI() {
   }
 }
 
-function updateEffectsToggle(button, enabled) {
-  if (!button) {
-    return;
+function updateAudioUi() {
+  const { effectsVolume, effectsVolumeValue, musicVolume, musicVolumeValue } = getMenuElements();
+  const musicPercent = Math.round(getMusicVolume() * 100);
+  const effectsPercent = Math.round(getEffectsVolume() * 100);
+
+  if (effectsVolume) {
+    effectsVolume.value = `${effectsPercent}`;
   }
 
-  button.textContent = enabled ? 'ON' : 'OFF';
-  button.setAttribute('aria-pressed', String(enabled));
-  button.classList.toggle('off', !enabled);
-}
-
-function updateAudioUi() {
-  const { effectsToggle, musicVolume, musicVolumeValue } = getMenuElements();
-  const musicPercent = Math.round(getMusicVolume() * 100);
-
-  updateEffectsToggle(effectsToggle, isEffectsEnabled());
+  if (effectsVolumeValue) {
+    effectsVolumeValue.textContent = `${effectsPercent}%`;
+  }
 
   if (musicVolume) {
     musicVolume.value = `${musicPercent}`;
@@ -225,7 +223,7 @@ export function setupInput() {
     musicBackBtn,
     prevBtn,
     nextBtn,
-    effectsToggle,
+    effectsVolume,
     musicVolume,
     restartBtn,
     backMenuBtn
@@ -302,18 +300,14 @@ export function setupInput() {
     });
   }
 
-  if (effectsToggle) {
-    effectsToggle.addEventListener('click', () => {
-      const nextEnabled = !isEffectsEnabled();
-
-      if (nextEnabled) {
-        setEffectsEnabled(true);
-        playButtonSound();
-      } else {
-        playButtonSound();
-        setEffectsEnabled(false);
+  if (effectsVolume) {
+    effectsVolume.addEventListener('input', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
       }
 
+      setEffectsVolume(Number(target.value) / 100);
       updateAudioUi();
     });
   }

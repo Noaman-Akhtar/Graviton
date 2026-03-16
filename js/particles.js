@@ -66,7 +66,8 @@ export function updateTrailSparkles(spawnNew = false) {
     }
   }
 
-  for (let i = gameState.trailSparkles.length - 1; i >= 0; i--) {
+  let writeIndex = 0;
+  for (let i = 0; i < gameState.trailSparkles.length; i++) {
     const sparkle = gameState.trailSparkles[i];
     sparkle.x += sparkle.vx;
     sparkle.y += sparkle.vy;
@@ -74,25 +75,24 @@ export function updateTrailSparkles(spawnNew = false) {
     sparkle.vy *= 0.985;
     sparkle.life -= 1;
 
-    if (sparkle.life <= 0) {
-      gameState.trailSparkles.splice(i, 1);
+    if (sparkle.life > 0) {
+      gameState.trailSparkles[writeIndex++] = sparkle;
     }
   }
-
-  if (gameState.trailSparkles.length > TRAIL_SPARKLE_MAX) {
-    gameState.trailSparkles.splice(0, gameState.trailSparkles.length - TRAIL_SPARKLE_MAX);
-  }
+  gameState.trailSparkles.length = Math.min(writeIndex, TRAIL_SPARKLE_MAX);
 
   setLastPlayerPos(playerPos);
 }
 
 export function drawTrailSparkles(ctx) {
+  const now = Date.now();
+  ctx.save();
+
   for (const sparkle of gameState.trailSparkles) {
     const lifeRatio = sparkle.life / sparkle.maxLife;
-    const twinkle = 0.65 + 0.35 * Math.sin(Date.now() * 0.03 + sparkle.twinkleOffset);
+    const twinkle = 0.65 + 0.35 * Math.sin(now * 0.03 + sparkle.twinkleOffset);
     const radius = Math.max(0.1, sparkle.size * lifeRatio * twinkle);
 
-    ctx.save();
     ctx.globalAlpha = Math.max(0, lifeRatio * 0.95);
     ctx.fillStyle = `hsla(${sparkle.hue}, 100%, 82%, 1)`;
     ctx.shadowBlur = 12;
@@ -113,7 +113,7 @@ export function drawTrailSparkles(ctx) {
       ctx.lineTo(sparkle.x, sparkle.y + crossSize);
       ctx.stroke();
     }
-
-    ctx.restore();
   }
+
+  ctx.restore();
 }

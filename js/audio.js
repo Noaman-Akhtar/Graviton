@@ -3,7 +3,7 @@ const audioCtx = AudioContextClass ? new AudioContextClass() : null;
 const AUDIO_SETTINGS_KEY = 'gravitonAudioSettings';
 const DEFAULT_AUDIO_SETTINGS = {
   musicVolume: 0.35,
-  effectsEnabled: true
+  effectsVolume: 0.7
 };
 const EFFECTS_GAIN = 1.7;
 const bgMusic = typeof Audio !== 'undefined'
@@ -11,7 +11,7 @@ const bgMusic = typeof Audio !== 'undefined'
   : null;
 
 let musicVolume = DEFAULT_AUDIO_SETTINGS.musicVolume;
-let effectsEnabled = DEFAULT_AUDIO_SETTINGS.effectsEnabled;
+let effectsVolume = DEFAULT_AUDIO_SETTINGS.effectsVolume;
 let lastLowFuelWarningAt = 0;
 
 function clamp01(value) {
@@ -19,7 +19,7 @@ function clamp01(value) {
 }
 
 function scaleEffectVolume(value) {
-  return clamp01(value * EFFECTS_GAIN);
+  return clamp01(value * EFFECTS_GAIN * effectsVolume);
 }
 
 function loadAudioSettings() {
@@ -42,7 +42,11 @@ function loadAudioSettings() {
 
     return {
       musicVolume: parsedMusicVolume,
-      effectsEnabled: parsed.effectsEnabled !== false
+      effectsVolume: typeof parsed.effectsVolume === 'number'
+        ? clamp01(parsed.effectsVolume)
+        : parsed.effectsEnabled === false
+          ? 0
+          : DEFAULT_AUDIO_SETTINGS.effectsVolume
     };
   } catch {
     return DEFAULT_AUDIO_SETTINGS;
@@ -59,7 +63,7 @@ function saveAudioSettings() {
       AUDIO_SETTINGS_KEY,
       JSON.stringify({
         musicVolume,
-        effectsEnabled
+        effectsVolume
       })
     );
   } catch {
@@ -78,7 +82,7 @@ function applyMusicVolume() {
 {
   const storedSettings = loadAudioSettings();
   musicVolume = storedSettings.musicVolume;
-  effectsEnabled = storedSettings.effectsEnabled;
+  effectsVolume = storedSettings.effectsVolume;
 }
 
 if (bgMusic) {
@@ -94,7 +98,7 @@ function resumeAudioContext() {
 }
 
 function ensureEffectsAudio() {
-  if (!audioCtx || !effectsEnabled) {
+  if (!audioCtx || effectsVolume <= 0) {
     return false;
   }
 
@@ -172,12 +176,12 @@ export function setMusicVolume(value) {
   }
 }
 
-export function isEffectsEnabled() {
-  return effectsEnabled;
+export function getEffectsVolume() {
+  return effectsVolume;
 }
 
-export function setEffectsEnabled(value) {
-  effectsEnabled = Boolean(value);
+export function setEffectsVolume(value) {
+  effectsVolume = clamp01(value);
   saveAudioSettings();
 }
 
@@ -245,7 +249,7 @@ export function playCollisionSound() {
 }
 
 export function playLowFuelWarning() {
-  if (!effectsEnabled) {
+  if (effectsVolume <= 0) {
     return;
   }
 

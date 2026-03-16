@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Graviton</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="main-menu">
+    <h1 class="game-title">GRAVITON</h1>
+    <div class="ship-selector">
+      <button id="prev-ship" class="nav-btn" type="button">&#9664;</button>
+      <div id="ship-display">
+        <div class="ship-preview-aura"></div>
+        <div class="ship-preview-body"></div>
+        <div class="ship-preview-highlight"></div>
+        <div class="ship-preview-engine"></div>
+      </div>
+      <button id="next-ship" class="nav-btn" type="button">&#9654;</button>
+    </div>
+    <div class="menu-actions">
+      <button id="play-btn" class="menu-btn" type="button">PLAY</button>`
+      <button id="music-btn" class="alt-btn menu-secondary-btn" type="button">MUSIC</button>
+    </div>
+  </div>
+  <div id="music-menu" class="overlay-panel hidden">
+    <h2 class="overlay-title">MUSIC</h2>
+    <div class="settings-stack">
+      <div class="slider-group">
+        <div class="sound-label-row">
+          <span class="sound-label">Background Volume</span>
+          <span id="music-volume-value" class="slider-value">35%</span>
+        </div>
+        <input
+          id="music-volume"
+          class="volume-slider"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value="35"
+          aria-label="Background music volume"
+        >
+      </div>
+      <div class="slider-group">
+        <div class="sound-label-row">
+          <span class="sound-label">Effects Volume</span>
+          <span id="effects-volume-value" class="slider-value">70%</span>
+        </div>
+        <input
+          id="effects-volume"
+          class="volume-slider"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value="70"
+          aria-label="Effects volume"
+        >
+      </div>
+    </div>
+    <div class="overlay-actions">
+      <button id="music-back-btn" class="alt-btn" type="button">BACK</button>
+    </div>
+  </div>
+  <div id="game-over-menu" class="overlay-panel hidden">
+    <h2 class="overlay-title">GAME OVER</h2>
+    <div class="overlay-score">Score: <span id="final-score">0</span></div>
+    <div class="overlay-score">Best: <span id="final-best">0</span></div>
+    <div class="overlay-actions">
+      <button id="restart-btn" class="menu-btn overlay-btn" type="button">RESTART</button>
+      <button id="back-menu-btn" class="alt-btn" type="button">MAIN MENU</button>
+    </div>
+  </div>
+  <canvas id="game"></canvas>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

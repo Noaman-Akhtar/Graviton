@@ -170,7 +170,6 @@ Difficulty increases through two independent systems:
 | ![Music Settings](screenshots/music_menu.png) | **Audio Settings** — Independent volume sliders for music and effects |
 | ![Gameplay](screenshots/gameplay_hud.png) | **Gameplay** — Health bubbles, fuel bar, score, and asteroid obstacles |
 | ![Game Over](screenshots/game_over.png) | **Game Over** — Death spiral, final score, and navigation options |
-| ![Black Hole](screenshots/black_hole.png) | **Black Hole** — Purple accretion rings around the central void |
 
 ---
 

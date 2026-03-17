@@ -214,7 +214,14 @@ Graviton/
     ├── config.js       # All game constants and tuning parameters
     └── utils.js        # Helper functions (spiral math, difficulty)
 ```
+---
 
+## Future Improvements
+
+- Add leaderboard system
+- Introduce new obstacle types
+- Add sound toggle shortcut
+- Mobile performance optimizations
 ---
 
 ## Getting Started

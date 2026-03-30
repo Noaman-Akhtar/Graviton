@@ -141,9 +141,10 @@ function updateHealthPickups() {
     return;
   }
 
+  const spawnAngle = gameState.distance + Math.PI + Math.random() * Math.PI * 2;
   gameState.healthPickups.push({
-    angle: gameState.distance + Math.PI + Math.random() * Math.PI * 2,
-    pos: 24 + Math.random() * (TUNNEL_WIDTH - 48)
+    angle: spawnAngle,
+    pos: calculateFuelPickupPosition(spawnAngle)
   });
 }
 

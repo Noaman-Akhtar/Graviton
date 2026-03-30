@@ -6,6 +6,7 @@ import {
   OBSTACLE_LOOKAHEAD,
   OBSTACLE_SPACING_STEP,
   OBSTACLE_START_ANGLE,
+  ROCK_OVERHANG,
   SHIP_COLLISION_RADIUS,
   SLOW_BUFF_AUTOPILOT_LOOKAHEAD,
   SLOW_BUFF_AUTOPILOT_PADDING,
@@ -119,10 +120,15 @@ export function updateObstacles() {
 
     const distToObs = obs.angle - gameState.distance;
 
-    if (distToObs < OBSTACLE_COLLISION_WINDOW && distToObs > -OBSTACLE_COLLISION_WINDOW) {
+    // Wider window for floating obstacles since their walls move continuously
+    const floaterExtra = obs.floatSpeed > 0 ? 0.15 : 0;
+    const window = OBSTACLE_COLLISION_WINDOW + floaterExtra;
+
+    if (distToObs < window && distToObs > -window) {
       const playerCenter = gameState.height;
-      const gBottom = obs.gapPos;
-      const gTop = obs.gapPos + obs.gapSize;
+      // Tighten the gap edges by ROCK_OVERHANG to match visual rock size
+      const gBottom = obs.gapPos + ROCK_OVERHANG;
+      const gTop = obs.gapPos + obs.gapSize - ROCK_OVERHANG;
 
       // Distance from player center to each wall edge
       // Negative means the player center is already past the wall (inside the rock)

@@ -13,7 +13,7 @@ import {
   TUNNEL_WIDTH
 } from './config.js';
 import { playDeathSound, playLowFuelWarning } from './audio.js';
-import { resetGame, setupInput, syncUiOverlays } from './input.js';
+import { isPaused, resetGame, setupInput, syncUiOverlays } from './input.js';
 import { getSlowBuffTargetHeight, updateObstacles } from './obstacles.js';
 import { createBurst, updateTrailSparkles } from './particles.js';
 import { updatePickups } from './pickups.js';
@@ -34,6 +34,10 @@ function resize() {
 }
 
 function update() {
+  if (isPaused()) {
+    return;
+  }
+
   if (gameState.gameOver) {
     if (gameState.deathFallActive) {
       gameState.deathFallVelocity += GAME_OVER_FALL_ACCELERATION;
@@ -160,6 +164,12 @@ function gameLoop(frameTime) {
 
   if (steps === MAX_CATCH_UP_STEPS) {
     accumulatedTime = 0;
+  }
+
+  // Reset accumulated time when paused to avoid catch-up on resume
+  if (isPaused()) {
+    accumulatedTime = 0;
+    lastFrameTime = frameTime;
   }
 
   syncUiOverlays();

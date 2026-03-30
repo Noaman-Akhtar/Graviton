@@ -14,17 +14,30 @@ import {
 } from './audio.js';
 
 let inputInitialized = false;
+let gamePaused = false;
+let pauseMusicSubMenuOpen = false;
 
 function getMenuElements() {
   return {
     menu: document.getElementById('main-menu'),
     musicMenu: document.getElementById('music-menu'),
     gameOverMenu: document.getElementById('game-over-menu'),
+    pauseMenu: document.getElementById('pause-menu'),
+    pauseMusicMenu: document.getElementById('pause-music-menu'),
     playBtn: document.getElementById('play-btn'),
     musicBtn: document.getElementById('music-btn'),
     musicBackBtn: document.getElementById('music-back-btn'),
     restartBtn: document.getElementById('restart-btn'),
     backMenuBtn: document.getElementById('back-menu-btn'),
+    resumeBtn: document.getElementById('resume-btn'),
+    pauseNewGameBtn: document.getElementById('pause-newgame-btn'),
+    pauseMusicBtn: document.getElementById('pause-music-btn'),
+    pauseMainMenuBtn: document.getElementById('pause-mainmenu-btn'),
+    pauseMusicBackBtn: document.getElementById('pause-music-back-btn'),
+    pauseMusicVolume: document.getElementById('pause-music-volume'),
+    pauseMusicVolumeValue: document.getElementById('pause-music-volume-value'),
+    pauseEffectsVolume: document.getElementById('pause-effects-volume'),
+    pauseEffectsVolumeValue: document.getElementById('pause-effects-volume-value'),
     prevBtn: document.getElementById('prev-ship'),
     nextBtn: document.getElementById('next-ship'),
     effectsVolume: document.getElementById('effects-volume'),
@@ -112,24 +125,36 @@ function updateGameOverUI() {
 }
 
 function updateAudioUi() {
-  const { effectsVolume, effectsVolumeValue, musicVolume, musicVolumeValue } = getMenuElements();
+  const {
+    effectsVolume, effectsVolumeValue, musicVolume, musicVolumeValue,
+    pauseMusicVolume, pauseMusicVolumeValue, pauseEffectsVolume, pauseEffectsVolumeValue
+  } = getMenuElements();
   const musicPercent = Math.round(getMusicVolume() * 100);
   const effectsPercent = Math.round(getEffectsVolume() * 100);
 
   if (effectsVolume) {
     effectsVolume.value = `${effectsPercent}`;
   }
-
   if (effectsVolumeValue) {
     effectsVolumeValue.textContent = `${effectsPercent}%`;
   }
-
   if (musicVolume) {
     musicVolume.value = `${musicPercent}`;
   }
-
   if (musicVolumeValue) {
     musicVolumeValue.textContent = `${musicPercent}%`;
+  }
+  if (pauseEffectsVolume) {
+    pauseEffectsVolume.value = `${effectsPercent}`;
+  }
+  if (pauseEffectsVolumeValue) {
+    pauseEffectsVolumeValue.textContent = `${effectsPercent}%`;
+  }
+  if (pauseMusicVolume) {
+    pauseMusicVolume.value = `${musicPercent}`;
+  }
+  if (pauseMusicVolumeValue) {
+    pauseMusicVolumeValue.textContent = `${musicPercent}%`;
   }
 }
 
@@ -161,18 +186,69 @@ function returnToMainMenu() {
   showMenu();
 }
 
+function showPauseMenu() {
+  const { pauseMenu } = getMenuElements();
+  if (pauseMenu) pauseMenu.classList.remove('hidden');
+}
+
+function hidePauseMenu() {
+  const { pauseMenu } = getMenuElements();
+  if (pauseMenu) pauseMenu.classList.add('hidden');
+}
+
+function showPauseMusicMenu() {
+  const { pauseMusicMenu } = getMenuElements();
+  if (pauseMusicMenu) pauseMusicMenu.classList.remove('hidden');
+}
+
+function hidePauseMusicMenu() {
+  const { pauseMusicMenu } = getMenuElements();
+  if (pauseMusicMenu) pauseMusicMenu.classList.add('hidden');
+}
+
+export function isPaused() {
+  return gamePaused;
+}
+
+function pauseGame() {
+  if (!gameState.gameStarted || gameState.gameOver) return;
+  gamePaused = true;
+  pauseMusicSubMenuOpen = false;
+  updateAudioUi();
+  showPauseMenu();
+}
+
+function resumeGame() {
+  gamePaused = false;
+  pauseMusicSubMenuOpen = false;
+  hidePauseMenu();
+  hidePauseMusicMenu();
+}
+
+function togglePause() {
+  if (gamePaused) {
+    resumeGame();
+  } else {
+    pauseGame();
+  }
+}
+
 export function resetGame() {
   stopBackgroundMusic();
+  gamePaused = false;
+  pauseMusicSubMenuOpen = false;
   resetGameState();
   initializeObstacles();
   updateShipUI();
   updateAudioUi();
   hideMusicMenu();
   hideGameOverMenu();
+  hidePauseMenu();
+  hidePauseMusicMenu();
 }
 
 export function flap() {
-  if (isMainMenuVisible() || isMusicMenuVisible() || isGameOverMenuVisible()) {
+  if (isMainMenuVisible() || isMusicMenuVisible() || isGameOverMenuVisible() || gamePaused) {
     return;
   }
 
@@ -234,6 +310,20 @@ export function setupInput() {
   updateAudioUi();
 
   window.addEventListener('keydown', (event) => {
+    if (event.code === 'Escape') {
+      event.preventDefault();
+      if (pauseMusicSubMenuOpen) {
+        pauseMusicSubMenuOpen = false;
+        hidePauseMusicMenu();
+        showPauseMenu();
+        return;
+      }
+      if (gameState.gameStarted && !gameState.gameOver) {
+        togglePause();
+      }
+      return;
+    }
+
     if (event.code !== 'Space') {
       return;
     }
@@ -330,6 +420,75 @@ export function setupInput() {
 
   if (backMenuBtn) {
     backMenuBtn.addEventListener('click', returnToMainMenu);
+  }
+
+  // Pause menu buttons
+  const {
+    resumeBtn, pauseNewGameBtn, pauseMusicBtn, pauseMainMenuBtn,
+    pauseMusicBackBtn, pauseMusicVolume: pmv, pauseEffectsVolume: pev
+  } = getMenuElements();
+
+  if (resumeBtn) {
+    resumeBtn.addEventListener('click', () => {
+      playButtonSound();
+      resumeGame();
+    });
+  }
+
+  if (pauseNewGameBtn) {
+    pauseNewGameBtn.addEventListener('click', () => {
+      playButtonSound();
+      resumeGame();
+      resetGame();
+      hideMenu();
+      flap();
+    });
+  }
+
+  if (pauseMusicBtn) {
+    pauseMusicBtn.addEventListener('click', () => {
+      playButtonSound();
+      pauseMusicSubMenuOpen = true;
+      updateAudioUi();
+      hidePauseMenu();
+      showPauseMusicMenu();
+    });
+  }
+
+  if (pauseMainMenuBtn) {
+    pauseMainMenuBtn.addEventListener('click', () => {
+      playButtonSound();
+      resumeGame();
+      resetGame();
+      showMenu();
+    });
+  }
+
+  if (pauseMusicBackBtn) {
+    pauseMusicBackBtn.addEventListener('click', () => {
+      playButtonSound();
+      pauseMusicSubMenuOpen = false;
+      hidePauseMusicMenu();
+      showPauseMenu();
+    });
+  }
+
+  if (pmv) {
+    pmv.addEventListener('input', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      setMusicVolume(Number(target.value) / 100);
+      updateAudioUi();
+    });
+  }
+
+  if (pev) {
+    pev.addEventListener('input', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      setEffectsVolume(Number(target.value) / 100);
+      updateAudioUi();
+    });
   }
 }
 

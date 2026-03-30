@@ -63,6 +63,55 @@
       <button id="music-back-btn" class="alt-btn" type="button">BACK</button>
     </div>
   </div>
+  <div id="pause-menu" class="overlay-panel hidden">
+    <h2 class="overlay-title">PAUSED</h2>
+    <div class="overlay-actions">
+      <button id="resume-btn" class="menu-btn overlay-btn" type="button">RESUME</button>
+      <button id="pause-newgame-btn" class="alt-btn" type="button">NEW GAME</button>
+      <button id="pause-music-btn" class="alt-btn" type="button">MUSIC</button>
+      <button id="pause-mainmenu-btn" class="alt-btn" type="button">MAIN MENU</button>
+    </div>
+  </div>
+  <div id="pause-music-menu" class="overlay-panel hidden">
+    <h2 class="overlay-title">MUSIC</h2>
+    <div class="settings-stack">
+      <div class="slider-group">
+        <div class="sound-label-row">
+          <span class="sound-label">Background Volume</span>
+          <span id="pause-music-volume-value" class="slider-value">35%</span>
+        </div>
+        <input
+          id="pause-music-volume"
+          class="volume-slider"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value="35"
+          aria-label="Background music volume"
+        >
+      </div>
+      <div class="slider-group">
+        <div class="sound-label-row">
+          <span class="sound-label">Effects Volume</span>
+          <span id="pause-effects-volume-value" class="slider-value">70%</span>
+        </div>
+        <input
+          id="pause-effects-volume"
+          class="volume-slider"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value="70"
+          aria-label="Effects volume"
+        >
+      </div>
+    </div>
+    <div class="overlay-actions">
+      <button id="pause-music-back-btn" class="alt-btn" type="button">BACK</button>
+    </div>
+  </div>
   <div id="game-over-menu" class="overlay-panel hidden">
     <h2 class="overlay-title">GAME OVER</h2>
     <div class="overlay-score">Score: <span id="final-score">0</span></div>

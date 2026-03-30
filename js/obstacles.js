@@ -2,9 +2,11 @@ import {
   INITIAL_OBSTACLE_COUNT,
   MIN_OBSTACLE_SPACING,
   OBSTACLE_CLEANUP_DISTANCE,
+  OBSTACLE_COLLISION_WINDOW,
   OBSTACLE_LOOKAHEAD,
   OBSTACLE_SPACING_STEP,
   OBSTACLE_START_ANGLE,
+  SHIP_COLLISION_RADIUS,
   SLOW_BUFF_AUTOPILOT_LOOKAHEAD,
   SLOW_BUFF_AUTOPILOT_PADDING,
   SPIRAL_GROWTH,
@@ -37,18 +39,19 @@ export function addObstacle(angle) {
   const gapSize = baseGap - (gameState.aiStressLevel * (baseGap - minGap));
 
   const baseGapPos = Math.random() * (TUNNEL_WIDTH - gapSize - 10) + 5;
-  const isDrifter = Math.random() < (gameState.aiStressLevel * 0.85);
-  const driftSpeed = isDrifter ? (Math.random() * 0.002 + 0.001) + (gameState.aiStressLevel * 0.003) : 0;
-  const driftRange = isDrifter ? (Math.random() * 15 + 10) + (gameState.aiStressLevel * 20) : 0;
+  const isFloater = Math.random() < (gameState.aiStressLevel * 0.85);
+  const floatSpeed = isFloater ? (Math.random() * 0.002 + 0.001) + (gameState.aiStressLevel * 0.003) : 0;
+  const floatRange = isFloater ? (Math.random() * 15 + 10) + (gameState.aiStressLevel * 20) : 0;
 
   gameState.obstacles.push({
     angle: angle,
     gapSize: gapSize,
     baseGapPos: baseGapPos,
     gapPos: baseGapPos,
-    driftSpeed: driftSpeed,
-    driftRange: driftRange,
-    driftPhase: Math.random() * Math.PI * 2,
+    floatSpeed: floatSpeed,
+    floatRange: floatRange,
+    floatPhase: Math.random() * Math.PI * 2,
+    floatOffset: 0,
     width: 0.1,
     passed: false,
     failed: false,
@@ -107,20 +110,30 @@ export function updateObstacles() {
   }
 
   for (const obs of gameState.obstacles) {
-    if (obs.driftSpeed > 0) {
-      obs.gapPos = obs.baseGapPos + Math.sin(Date.now() * obs.driftSpeed + obs.driftPhase) * obs.driftRange;
+    // Float the entire obstacle up/down
+    if (obs.floatSpeed > 0) {
+      obs.floatOffset = Math.sin(Date.now() * obs.floatSpeed + obs.floatPhase) * obs.floatRange;
+      obs.gapPos = obs.baseGapPos + obs.floatOffset;
       obs.gapPos = Math.max(5, Math.min(TUNNEL_WIDTH - obs.gapSize - 5, obs.gapPos));
     }
 
     const distToObs = obs.angle - gameState.distance;
 
-    if (distToObs < 0.05 && distToObs > -0.05) {
-      const pBottom = gameState.height - 8;
-      const pTop = gameState.height + 8;
+    if (distToObs < OBSTACLE_COLLISION_WINDOW && distToObs > -OBSTACLE_COLLISION_WINDOW) {
+      const playerCenter = gameState.height;
       const gBottom = obs.gapPos;
       const gTop = obs.gapPos + obs.gapSize;
 
-      if (pBottom < gBottom || pTop > gTop) {
+      // Distance from player center to each wall edge
+      // Negative means the player center is already past the wall (inside the rock)
+      const distToBottomWall = playerCenter - gBottom;
+      const distToTopWall = gTop - playerCenter;
+
+      // Collision: ship circle overlaps with either wall
+      const hitsBottom = distToBottomWall < SHIP_COLLISION_RADIUS;
+      const hitsTop = distToTopWall < SHIP_COLLISION_RADIUS;
+
+      if (hitsBottom || hitsTop) {
         if (!obs.failed) {
           obs.failed = true;
           applyDamage();

@@ -268,43 +268,84 @@ export function draw(ctx, canvas) {
     const notchDepth = obs.notchDepth || 1;
 
     const drawAsteroid = (seed, thickness) => {
-      const sides = 6 + Math.floor(((Math.sin(seed * 7.3) + 1) * 0.5) * 5);
+      const sides = 14 + Math.floor(((Math.sin(seed * 7.3) + 1) * 0.5) * 4);
       const angleStep = (Math.PI * 2) / sides;
       const vertices = [];
 
       for (let i = 0; i < sides; i++) {
-        const a = angleStep * i - Math.PI / 2;
-        const radiusVar = thickness * (
-          0.6 + Math.sin(seed * (1.2 + i * 0.7) + ridgePhase * (0.5 + i * 0.3)) * (0.15 + roughness * 0.08)
-          + Math.cos(seed * (2.1 + i * 1.1) - ridgePhase * (0.4 + i * 0.2)) * (0.12 + roughness * 0.06)
-        );
+        const a = angleStep * i;
+        const n1 = Math.sin(seed * 1.3 + i * 0.7) * 0.14;
+        const n2 = Math.cos(seed * 2.5 + i * 1.1) * 0.09;
+        const n3 = Math.sin(seed * 4.1 + i * 1.6) * 0.05;
+        const r = thickness * (0.72 + n1 + n2 + n3);
         vertices.push({
-          x: Math.cos(a) * radiusVar * (1.0 + Math.sin(seed * 3.1 + i) * 0.15),
-          y: Math.sin(a) * radiusVar * (1.2 + Math.cos(seed * 2.3 + i) * 0.2)
+          x: Math.cos(a) * r,
+          y: Math.sin(a) * r
         });
       }
 
-      ctx.fillStyle = "#555";
-      ctx.strokeStyle = "#222";
-      ctx.lineWidth = 0.05;
+      // Dark grey body
+      ctx.fillStyle = "#4a4a4a";
+      ctx.strokeStyle = "#2a2a2a";
+      ctx.lineWidth = 0.03;
       ctx.beginPath();
       ctx.moveTo(vertices[0].x, vertices[0].y);
       for (let i = 1; i < vertices.length; i++) {
-        ctx.lineTo(vertices[i].x, vertices[i].y);
+        const prev = vertices[i - 1];
+        const curr = vertices[i];
+        ctx.quadraticCurveTo(
+          (prev.x + curr.x) / 2 + Math.sin(seed + i) * thickness * 0.03,
+          (prev.y + curr.y) / 2 + Math.cos(seed + i) * thickness * 0.03,
+          curr.x, curr.y
+        );
       }
+      ctx.quadraticCurveTo(
+        (vertices[vertices.length - 1].x + vertices[0].x) / 2,
+        (vertices[vertices.length - 1].y + vertices[0].y) / 2,
+        vertices[0].x, vertices[0].y
+      );
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
-      const innerCount = Math.max(3, Math.floor(sides * 0.6));
-      ctx.fillStyle = "#3e3e3e";
+      // Lighter highlight edge
+      ctx.fillStyle = "#5a5a5a";
       ctx.beginPath();
-      ctx.moveTo(vertices[0].x * 0.7, vertices[0].y * 0.65);
-      for (let i = 1; i < innerCount; i++) {
-        ctx.lineTo(vertices[i].x * 0.65 + 0.02, vertices[i].y * 0.7);
+      for (let i = 0; i < Math.floor(sides * 0.4); i++) {
+        const v = vertices[i];
+        if (i === 0) ctx.moveTo(v.x * 0.92, v.y * 0.92);
+        else ctx.lineTo(v.x * 0.92, v.y * 0.92);
       }
       ctx.closePath();
       ctx.fill();
+
+      // Darker inner shading
+      ctx.fillStyle = "#383838";
+      ctx.beginPath();
+      ctx.moveTo(vertices[0].x * 0.5, vertices[0].y * 0.5);
+      for (let i = 1; i < vertices.length; i++) {
+        ctx.lineTo(vertices[i].x * 0.5, vertices[i].y * 0.5);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      // Craters
+      const craterCount = 2 + Math.floor(Math.abs(Math.sin(seed * 3.7)) * 2);
+      for (let c = 0; c < craterCount; c++) {
+        const ca = (c / craterCount) * Math.PI * 2 + seed * 1.5;
+        const cd = thickness * (0.22 + Math.abs(Math.sin(seed * 2.1 + c * 1.9)) * 0.2);
+        const crX = Math.cos(ca) * cd;
+        const crY = Math.sin(ca) * cd;
+        const crR = thickness * (0.07 + Math.abs(Math.cos(seed * 2.8 + c)) * 0.06);
+        ctx.fillStyle = "#2a2a2a";
+        ctx.beginPath();
+        ctx.arc(crX, crY, crR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#333333";
+        ctx.beginPath();
+        ctx.arc(crX + crR * 0.15, crY + crR * 0.15, crR * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+      }
     };
 
     const drawAsteroidWall = (segmentStart, segmentEnd, sideSeed, isInner) => {
@@ -317,44 +358,34 @@ export function draw(ctx, canvas) {
       const midX = midR * Math.cos(obs.angle);
       const midY = midR * Math.sin(obs.angle);
       const seed = obs.angle * 5.8 + sideSeed * 2.7 + layers * 0.93;
-      
-      const wallHalfWidth = Math.max(
-        20,
-        Math.min(56, radialSpan * (0.11 + roughness * 0.015) + 15 + layers * 4.5)
-      );
-      const clusterCount = Math.max(2, layers + 1 + (roughness > 1.35 ? 1 : 0));
+
+      // Place round meteors along the wall
+      const meteorCount = Math.max(4, layers + 3);
 
       ctx.save();
       ctx.translate(midX, midY);
       ctx.rotate(obs.angle - Math.PI / 2);
 
-      ctx.beginPath();
-      ctx.rect(-wallHalfWidth * 1.65, -radialSpan / 2 - 12, wallHalfWidth * 3.3, radialSpan + 24);
-      ctx.clip();
-
-      for (let i = 0; i < clusterCount; i++) {
+      for (let i = 0; i < meteorCount; i++) {
         const pieceSeed = seed + i * 1.71;
-        const t = clusterCount === 1 ? 0.5 : i / (clusterCount - 1);
-        const yOffset =
-          (t - 0.5) * radialSpan * (0.34 + roughness * 0.08) +
-          Math.sin(pieceSeed * 2.6 + ridgePhase) * radialSpan * 0.08 * roughness +
-          clusterSkew * radialSpan * 0.08;
-        const xOffset =
-          Math.cos(pieceSeed * 1.8 + ridgePhase) * wallHalfWidth * (0.14 + roughness * 0.06) +
-          Math.sin(pieceSeed * 4.2 - ridgePhase) * wallHalfWidth * 0.06;
-        
-        const rockWidth =
-          wallHalfWidth *
-          (1.02 + roughness * 0.24 + Math.sin(pieceSeed * 1.1 + ridgePhase) * 0.22 + layers * 0.24);
-        const rockHeight =
-          radialSpan * (0.82 + roughness * 0.14 + Math.cos(pieceSeed * 0.9 - ridgePhase) * 0.16);
-        const thickness =
-          1.02 + roughness * 0.24 + Math.abs(Math.sin(pieceSeed * 1.4 + ridgePhase)) * 0.42;
+        const t = meteorCount === 1 ? 0.5 : i / (meteorCount - 1);
+
+        // Spread along radial direction
+        const yPos = (t - 0.5) * radialSpan * 0.85 +
+          Math.sin(pieceSeed * 2.3) * radialSpan * 0.08;
+        const xPos = Math.cos(pieceSeed * 1.8 + ridgePhase) * radialSpan * 0.15 +
+          Math.sin(pieceSeed * 3.5) * radialSpan * 0.06;
+
+        // Uniform round size — each rock looks like an individual meteor
+        const rockSize = radialSpan * (0.38 + Math.abs(Math.sin(pieceSeed * 1.4)) * 0.18
+          + layers * 0.05 + roughness * 0.06);
+        const aspect = 1.0 + Math.sin(pieceSeed * 3.1) * 0.08;
+        const thickness = 1.0 + roughness * 0.2 + Math.abs(Math.sin(pieceSeed * 1.7)) * 0.3;
 
         ctx.save();
-        ctx.translate(xOffset, yOffset);
-        ctx.rotate(Math.sin(pieceSeed * 2.4 + ridgePhase) * 0.16 + clusterSkew * 0.08);
-        ctx.scale(rockWidth, rockHeight); 
+        ctx.translate(xPos, yPos);
+        ctx.rotate(pieceSeed * 0.8 + ridgePhase * 0.3);
+        ctx.scale(rockSize, rockSize * aspect);
         drawAsteroid(pieceSeed, thickness);
         ctx.restore();
       }
